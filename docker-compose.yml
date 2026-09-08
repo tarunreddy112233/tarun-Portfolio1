@@ -38,6 +38,16 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data
 
+  ai-service:
+    build:
+      context: ./ai-service
+    container_name: incident-ai-service
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+    ports:
+      - "8000:8000"
+
 volumes:
   postgres-data:
   kafka-data:
