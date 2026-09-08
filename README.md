@@ -1,11 +1,11 @@
 # AI-Powered Production Incident Triage Platform
 
-An event-driven incident intake and persistence service built with Spring Boot, Apache Kafka, and PostgreSQL. Phase 1 establishes the core production-style backend foundation for a later AI/RAG incident analysis workflow.
+A production-style incident intelligence platform that combines an event-driven Java backend with a Python RAG/LLM service. It ingests incidents asynchronously through Kafka, persists them in PostgreSQL, retrieves relevant operational runbooks, and generates structured triage guidance.
 
-## Phase 1 architecture
+## Architecture
 
 ```text
-Client / simulated service
+Simulated service / client
           |
           | POST /api/incidents
           v
@@ -19,47 +19,103 @@ Client / simulated service
           v
       PostgreSQL
           |
+          | incident context
+          v
+   Python AI Service
+          |
+          +--> runbook retrieval
+          |       |
+          |       +--> operational knowledge
+          |
+          +--> optional OpenAI LLM
+          |
+          v
+ structured triage result
+          |
+          v
+      PostgreSQL
+          |
           v
  GET /api/incidents
 ```
 
-## Why this project exists
+## What Phase 2 adds
 
-The platform models a common production workflow: application services emit incident events, Kafka decouples ingestion from persistence, and PostgreSQL provides durable incident history. Later phases will add anomaly detection, vector search/RAG, LLM-assisted root-cause analysis, and a React operations dashboard.
+- Dedicated Python FastAPI AI service.
+- Retrieval-augmented generation (RAG) using an operational runbook knowledge base.
+- Safe fallback analysis when no LLM API key is configured.
+- Optional OpenAI-powered structured incident reasoning.
+- Severity, probable root cause, remediation recommendation, confidence, and retrieved runbook stored with each incident.
+- Spring Boot AI client connecting the Kafka-driven incident pipeline to the AI service.
+- Docker Compose support for PostgreSQL, Kafka, and the AI service.
 
 ## Stack
 
+### Backend
 - Java 21
 - Spring Boot 4.1.1
 - Spring Web MVC
 - Spring Data JPA / Hibernate
 - Apache Kafka
 - PostgreSQL 17
-- Docker Compose
 - Spring Actuator
-- JUnit / Testcontainers
 
-Spring Boot 4.1.1 is the current stable release as of September 2026; Spring's documentation lists Java 17+ as required and recommends `spring-boot-starter-webmvc` for Spring MVC applications. citeturn889742search1turn889742search4
+### AI
+- Python 3.12
+- FastAPI
+- OpenAI API (optional)
+- Retrieval-augmented generation (RAG)
+- Operational runbook knowledge base
+
+### DevOps
+- Docker Compose
+- GitHub Actions
+- JUnit
 
 ## Run locally
 
-### 1. Start infrastructure
+### 1. Prerequisites
 
-```bash
-docker compose up -d
+Install:
+- Java 21
+- Maven 3.9+
+- Docker Desktop
+- Python is not required locally if you run the AI service through Docker Compose.
+
+### 2. Configure the optional LLM
+
+Create a local `.env` file in the repository root. Never commit it.
+
+```env
+OPENAI_API_KEY=your_api_key
+OPENAI_MODEL=gpt-4o-mini
 ```
 
-This starts PostgreSQL on `localhost:5432` and Kafka on `localhost:9092`.
+The AI service still works without the key by using the deterministic runbook-retrieval fallback.
 
-### 2. Start the application
+### 3. Start infrastructure and AI service
+
+```bash
+docker compose up -d --build
+```
+
+This starts PostgreSQL on `localhost:5432`, Kafka on `localhost:9092`, and the AI service on `localhost:8000`.
+
+Check the AI service:
+
+```bash
+curl http://localhost:8000/health
+```
+
+### 4. Start the Spring Boot application
 
 ```bash
 mvn spring-boot:run
 ```
 
-The API starts on `http://localhost:8080`.
+The API starts on `http://localhost:8080` and connects to the AI service at `http://localhost:8000` by default.
 
-### 3. Create an incident
+### 5. Create an incident
 
 ```bash
 curl -X POST http://localhost:8080/api/incidents \
@@ -71,81 +127,86 @@ curl -X POST http://localhost:8080/api/incidents \
   }'
 ```
 
-Expected response:
+The API responds immediately with a queued incident ID. Kafka then delivers the event to the consumer, which persists the incident and requests AI triage.
 
-```json
-{
-  "incidentId": "<uuid>",
-  "status": "QUEUED",
-  "message": "Incident accepted for asynchronous processing"
-}
-```
-
-### 4. Query recent incidents
+### 6. Query recent incidents
 
 ```bash
 curl http://localhost:8080/api/incidents
 ```
 
-## API
-
-| Method | Endpoint | Purpose |
-|---|---|---|
-| POST | `/api/incidents` | Accept an incident and publish it to Kafka |
-| GET | `/api/incidents` | Return the latest persisted incidents |
-| GET | `/actuator/health` | Service health check |
-| GET | `/actuator/metrics` | Application metrics |
-
-## Event contract
-
-Kafka topic: `production-incidents`
+A completed record can contain fields such as:
 
 ```json
 {
-  "incidentId": "8bf3a6ce-4ddf-4fa0-b3b9-4fc6dc7f2c52",
-  "serviceName": "payment-service",
-  "errorCode": "DATABASE_CONNECTION_FAILURE",
-  "message": "PostgreSQL connection pool exhausted",
-  "occurredAt": "2026-09-08T16:00:00Z"
+  "severity": "HIGH",
+  "rootCause": "Likely related to database connection pool exhaustion...",
+  "recommendation": "Inspect long-running queries and pool usage...",
+  "confidence": 0.72,
+  "retrievedRunbook": "db-pool"
 }
 ```
 
-## Engineering decisions
+## AI service API
 
-- REST ingestion is intentionally asynchronous: the API returns `202 Accepted` after publishing to Kafka instead of waiting for database persistence.
-- Kafka uses three partitions in the local topic definition to model partitioned event processing.
-- PostgreSQL stores a durable incident record and protects against duplicate event IDs.
-- Configuration is externalized through environment variables so local and cloud deployment can use the same application artifact.
-- Actuator health and metrics endpoints are enabled for the observability work that will be expanded in later phases.
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/health` | AI service health and LLM configuration status |
+| POST | `/analyze` | Retrieve relevant runbook context and generate triage analysis |
 
-## Roadmap
+Example:
 
-### Phase 1 — Event-driven foundation
+```bash
+curl -X POST http://localhost:8000/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "incidentId": "demo-123",
+    "serviceName": "payment-service",
+    "errorCode": "DATABASE_CONNECTION_FAILURE",
+    "message": "PostgreSQL connection pool exhausted"
+  }'
+```
+
+## Security
+
+- API keys are supplied through environment variables and are excluded by `.gitignore`.
+- The LLM prompt explicitly limits reasoning to the incident and retrieved runbook context.
+- The AI service returns structured JSON instead of free-form output so the backend can validate and persist predictable fields.
+- The fallback mode allows local development without exposing an API key.
+
+## Current project roadmap
+
+### Phase 1 — Event-driven foundation ✅
 - Spring Boot API
 - Kafka event ingestion
 - PostgreSQL persistence
 - Docker Compose
 - Health/metrics endpoints
 
-### Phase 2 — Incident intelligence
-- Error-rate and latency anomaly detection
-- Incident correlation
+### Phase 2 — Incident intelligence ✅
+- Runbook retrieval
+- AI service integration
 - Severity scoring
-- Redis caching
+- Structured root-cause and remediation output
+- AI results persisted with incidents
 
-### Phase 3 — AI/RAG
-- Runbook knowledge base
-- Embeddings and vector search
-- LLM root-cause analysis
-- Structured remediation recommendations
+### Phase 3 — Advanced RAG
+- Embedding generation
+- PostgreSQL + pgvector vector search
+- Hybrid retrieval
+- Runbook ingestion pipeline
+- Evaluation dataset and retrieval metrics
 
 ### Phase 4 — Operations UI
 - React + TypeScript dashboard
 - Live incident stream
-- Incident details and AI recommendations
+- Incident details
+- AI recommendations and confidence
+- Search/filtering
 
 ### Phase 5 — Productionization
-- Docker image
-- CI/CD
+- Containerized full stack
+- CI/CD quality gates
 - AWS deployment
-- Observability and load testing
+- Observability
+- Load testing and resilience testing
