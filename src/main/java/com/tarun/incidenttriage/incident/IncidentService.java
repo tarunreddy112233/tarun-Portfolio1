@@ -1,5 +1,6 @@
 package com.tarun.incidenttriage.incident;
 
+import com.tarun.incidenttriage.ai.AiAnalysisClient;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,11 +15,14 @@ public class IncidentService {
 
     private final KafkaTemplate<String, IncidentEvent> kafkaTemplate;
     private final IncidentRepository incidentRepository;
+    private final AiAnalysisClient aiAnalysisClient;
 
     public IncidentService(KafkaTemplate<String, IncidentEvent> kafkaTemplate,
-                           IncidentRepository incidentRepository) {
+                           IncidentRepository incidentRepository,
+                           AiAnalysisClient aiAnalysisClient) {
         this.kafkaTemplate = kafkaTemplate;
         this.incidentRepository = incidentRepository;
+        this.aiAnalysisClient = aiAnalysisClient;
     }
 
     public UUID publish(IncidentRequest request) {
@@ -47,6 +51,14 @@ public class IncidentService {
                         event.message(),
                         event.occurredAt()
                 )));
+    }
+
+    @Transactional
+    public void analyzeAndStore(IncidentEvent event) {
+        Incident incident = persist(event);
+        IncidentAnalysis analysis = aiAnalysisClient.analyze(incident);
+        incident.applyAnalysis(analysis);
+        incidentRepository.save(incident);
     }
 
     @Transactional(readOnly = true)
