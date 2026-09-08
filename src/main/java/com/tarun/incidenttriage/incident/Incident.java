@@ -28,7 +28,7 @@ public class Incident {
     @Column(nullable = false)
     private String errorCode;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 4000)
     private String message;
 
     @Enumerated(EnumType.STRING)
@@ -37,6 +37,19 @@ public class Incident {
 
     @Column(nullable = false)
     private Instant occurredAt;
+
+    private String severity;
+
+    @Column(length = 4000)
+    private String rootCause;
+
+    @Column(length = 4000)
+    private String recommendation;
+
+    private Double confidence;
+
+    @Column(length = 4000)
+    private String retrievedRunbook;
 
     protected Incident() {
     }
@@ -57,5 +70,18 @@ public class Incident {
     public String getMessage() { return message; }
     public IncidentStatus getStatus() { return status; }
     public Instant getOccurredAt() { return occurredAt; }
+    public String getSeverity() { return severity; }
+    public String getRootCause() { return rootCause; }
+    public String getRecommendation() { return recommendation; }
+    public Double getConfidence() { return confidence; }
+    public String getRetrievedRunbook() { return retrievedRunbook; }
     public void setStatus(IncidentStatus status) { this.status = status; }
+
+    public void applyAnalysis(IncidentAnalysis analysis) {
+        this.severity = analysis.severity();
+        this.rootCause = analysis.rootCause();
+        this.recommendation = analysis.recommendation();
+        this.confidence = analysis.confidence();
+        this.retrievedRunbook = analysis.retrievedRunbook();
+    }
 }
