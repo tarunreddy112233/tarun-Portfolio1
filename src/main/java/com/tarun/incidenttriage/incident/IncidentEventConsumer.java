@@ -13,6 +13,6 @@ public class IncidentEventConsumer {
 
     @KafkaListener(topics = IncidentService.INCIDENT_TOPIC, groupId = "incident-persistence")
     public void consume(IncidentEvent event) {
-        incidentService.persist(event);
+        incidentService.analyzeAndStore(event);
     }
 }
