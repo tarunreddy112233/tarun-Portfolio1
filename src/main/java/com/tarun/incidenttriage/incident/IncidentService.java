@@ -39,20 +39,14 @@ public class IncidentService {
 
     @Transactional
     public Incident persist(IncidentEvent event) {
-        if (incidentRepository.existsByIncidentId(event.incidentId())) {
-            return incidentRepository.findAll().stream()
-                    .filter(existing -> event.incidentId().equals(existing.getIncidentId()))
-                    .findFirst()
-                    .orElseThrow();
-        }
-
-        return incidentRepository.save(new Incident(
-                event.incidentId(),
-                event.serviceName(),
-                event.errorCode(),
-                event.message(),
-                event.occurredAt()
-        ));
+        return incidentRepository.findByIncidentId(event.incidentId())
+                .orElseGet(() -> incidentRepository.save(new Incident(
+                        event.incidentId(),
+                        event.serviceName(),
+                        event.errorCode(),
+                        event.message(),
+                        event.occurredAt()
+                )));
     }
 
     @Transactional(readOnly = true)
