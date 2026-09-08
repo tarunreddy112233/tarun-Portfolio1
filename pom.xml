@@ -14,7 +14,7 @@
     <artifactId>ai-incident-triage-platform</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>AI Incident Triage Platform</name>
-    <description>Event-driven production incident triage platform built with Spring Boot, Kafka and PostgreSQL</description>
+    <description>Event-driven production incident triage platform built with Spring Boot, Kafka, PostgreSQL and RAG</description>
 
     <properties>
         <java.version>21</java.version>
@@ -49,21 +49,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-testcontainers</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
